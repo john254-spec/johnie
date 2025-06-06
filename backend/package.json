@@ -4,12 +4,16 @@
   "description": "Express backend for music upload/download site",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.18.3",
     "multer": "^1.4.5",
     "jsonwebtoken": "^9.0.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
