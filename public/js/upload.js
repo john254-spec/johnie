@@ -4,9 +4,19 @@ async function handleUpload(event) {
   const form = document.getElementById('uploadForm');
   const formData = new FormData(form);
 
+  // Get the token from localStorage (or wherever you're storing it after login)
+  const token = localStorage.getItem('token');
+  if (!token) {
+    alert("You must be logged in to upload.");
+    return;
+  }
+
   try {
     const response = await fetch('https://johnie-2.onrender.com/api/upload', {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}` // <-- REQUIRED for authMiddleware
+      },
       body: formData
     });
 
