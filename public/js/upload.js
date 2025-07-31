@@ -1,5 +1,3 @@
-// upload.js
-
 const token = localStorage.getItem('token'); // Must be set after login
 
 document.addEventListener('DOMContentLoaded', () => {
