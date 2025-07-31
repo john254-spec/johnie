@@ -1,39 +1,44 @@
-async function handleUpload(event) {
-  event.preventDefault(); // Prevent page reload
+document.addEventListener('DOMContentLoaded', () => {
+  const uploadForm = document.getElementById('uploadForm');
 
-  const form = document.getElementById('uploadForm');
-  const formData = new FormData(form);
-
-  // Get JWT token from localStorage
-  const token = localStorage.getItem('token');
-
-  if (!token) {
-    alert('You must be logged in to upload a file.');
+  if (!uploadForm) {
+    console.error('Upload form not found on the page.');
     return;
   }
 
-  try {
-    const response = await fetch('https://johnie-2.onrender.com/api/upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      body: formData
-    });
+  uploadForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
 
-    if (response.ok) {
-      const result = await response.json();
-      alert('Upload successful!');
-      console.log('Uploaded file info:', result);
-    } else {
-      const error = await response.text();
-      alert('Upload failed: ' + error);
-      console.error('Error details:', error);
+    const formData = new FormData(uploadForm);
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      alert('You must be logged in to upload.');
+      return;
     }
-  } catch (err) {
-    console.error('Upload error:', err);
-    alert('Something went wrong. Check the console for details.');
-  }
-}
 
-document.getElementById('uploadForm').addEventListener('submit', handleUpload);
+    try {
+      const response = await fetch('https://johnie-2.onrender.com/api/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload failed:', errorText);
+        alert(`Upload failed: ${errorText}`);
+        return;
+      }
+
+      const data = await response.json();
+      alert('Upload successful!');
+      console.log('Uploaded file info:', data);
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('Upload failed. See console for details.');
+    }
+  });
+});
