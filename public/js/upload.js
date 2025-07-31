@@ -1,44 +1,65 @@
+// upload.js
+
+const token = localStorage.getItem('token'); // Must be set after login
+
 document.addEventListener('DOMContentLoaded', () => {
   const uploadForm = document.getElementById('uploadForm');
+  const fileInput = document.getElementById('track');
+  const status = document.getElementById('status');
+  const fileList = document.getElementById('fileList');
 
-  if (!uploadForm) {
-    console.error('Upload form not found on the page.');
+  if (!token) {
+    status.innerText = 'Please log in to upload music.';
     return;
   }
 
-  uploadForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-
-    const formData = new FormData(uploadForm);
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-      alert('You must be logged in to upload.');
+  // Upload handler
+  uploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!fileInput.files.length) {
+      status.innerText = 'Please select a file.';
       return;
     }
 
+    const formData = new FormData();
+    formData.append('track', fileInput.files[0]);
+
     try {
-      const response = await fetch('https://johnie-2.onrender.com/api/upload', {
+      const res = await fetch('/api/music/upload', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`
         },
-        body: formData,
+        body: formData
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Upload failed:', errorText);
-        alert(`Upload failed: ${errorText}`);
-        return;
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Upload failed');
 
-      const data = await response.json();
-      alert('Upload successful!');
-      console.log('Uploaded file info:', data);
+      status.innerText = `Uploaded: ${data.originalname}`;
+      fileInput.value = '';
+      loadFiles(); // Refresh list
     } catch (err) {
-      console.error('Upload error:', err);
-      alert('Upload failed. See console for details.');
+      status.innerText = `Error: ${err.message}`;
     }
   });
+
+  // Load uploaded files
+  async function loadFiles() {
+    try {
+      const res = await fetch('/api/music/list');
+      const files = await res.json();
+
+      fileList.innerHTML = files.map(file => `
+        <li>
+          ${file} 
+          <a href="/api/music/download/${file}" download>Download</a>
+        </li>
+      `).join('');
+    } catch (err) {
+      fileList.innerText = 'Failed to load files.';
+    }
+  }
+
+  loadFiles();
 });
