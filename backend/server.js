@@ -106,6 +106,65 @@ app.get('/api/music/list', (req, res) => {
 app.get('/api/music/download/:file', (req, res) => {
   const filepath = path.join(uploadsDir, req.params.file);
   res.download(filepath);
+  
+  app.post("/donate", async (req, res) => {
+  const { phone, amount } = req.body;
+
+  try {
+    const auth = Buffer.from(
+      `${process.env.CONSUMER_KEY}:${process.env.CONSUMER_SECRET}`
+    ).toString("base64");
+
+    const tokenRes = await axios.get(
+      `${process.env.BASE_URL}/oauth/v1/generate?grant_type=client_credentials`,
+      {
+        headers: {
+          Authorization: `Basic ${auth}`,
+        },
+      }
+    );
+
+    const token = tokenRes.data.access_token;
+
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[-T:.Z]/g, "")
+      .slice(0, 14);
+
+    const password = Buffer.from(
+      process.env.SHORTCODE + process.env.PASSKEY + timestamp
+    ).toString("base64");
+
+    const stk = await axios.post(
+      `${process.env.BASE_URL}/mpesa/stkpush/v1/processrequest`,
+      {
+        BusinessShortCode: process.env.SHORTCODE,
+        Password: password,
+        Timestamp: timestamp,
+        TransactionType: "CustomerPayBillOnline",
+        Amount: amount,
+        PartyA: phone,
+        PartyB: process.env.SHORTCODE,
+        PhoneNumber: phone,
+        CallBackURL: "https://johnie-1.onrender.com/callback",
+        AccountReference: "Donation",
+        TransactionDesc: "Website Donation",
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    res.json(stk.data);
+  } catch (err) {
+    res.status(500).json(err.response?.data || err.message);
+  }
+});
+  
+
+  
 });
 
 // Start server
