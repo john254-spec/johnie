@@ -1,11 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
+require('dotenv').config();
 
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
@@ -16,106 +17,106 @@ app.use(express.json());
 // Serve static files
 app.use(express.static(path.join(__dirname, '../public')));
 
-// In‑memory user store (for demo purposes)
-let users = [];          // { id, username, email, password }
-const resetTokens = {};  // token -> userId
+// In-memory user store
+let users = [];
+const resetTokens = {};
 
+// Generate JWT token
 function generateToken(user) {
-  return jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+    },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  );
 }
 
-// ----------- Auth routes -----------
+// ---------------- AUTH ROUTES ----------------
+
+// Register
 app.post('/api/auth/register', (req, res) => {
   const { username, email, password } = req.body;
-  if (users.find(u => u.email === email)) {
-    return res.status(400).json({ message: 'Email already registered' });
+
+  if (users.find((u) => u.email === email)) {
+    return res.status(400).json({
+      message: 'Email already registered',
+    });
   }
+
   const id = Date.now().toString();
-  users.push({ id, username, email, password });
-  res.json({ message: 'Registration successful' });
-});
 
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  const user = users.find(u => u.email === email && u.password === password);
-  if (!user) {
-    return res.status(400).json({ message: 'Invalid credentials' });
-  }
-  const token = generateToken(user);
-  res.json({ token });
-});
+  users.push({
+    id,
+    username,
+    email,
+    password,
+  });
 
-app.post('/api/auth/forgot', (req, res) => {
-  const { email } = req.body;
-  const user = users.find(u => u.email === email);
-  if (!user) {
-    return res.status(400).json({ message: 'User not found' });
-  }
-  const token = `${Math.random().toString(36).substring(2)}${Date.now()}`;
-  resetTokens[token] = user.id;
-  console.log(`Password reset link: http://localhost:${PORT}/reset.html?token=${token}`);
-  res.json({ message: 'Reset link generated (check server console)' });
-});
-
-app.post('/api/auth/reset', (req, res) => {
-  const { token, password } = req.body;
-  const userId = resetTokens[token];
-  if (!userId) {
-    return res.status(400).json({ message: 'Invalid or expired token' });
-  }
-  const user = users.find(u => u.id === userId);
-  user.password = password;
-  delete resetTokens[token];
-  res.json({ message: 'Password updated successfully' });
-});
-
-// ----------- Music upload/download -----------
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
-
-const storage = multer.diskStorage({
-  destination: uploadsDir,
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-});
-const upload = multer({ storage });
-
-function authMiddleware(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token = header.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'Token required' });
-  try {
-    const data = jwt.verify(token, JWT_SECRET);
-    req.user = data;
-    next();
-  } catch {
-    res.status(401).json({ message: 'Invalid token' });
-  }
-}
-
-app.post('/api/music/upload', authMiddleware, upload.single('track'), (req, res) => {
-  res.json({ filename: req.file.filename, originalname: req.file.originalname });
-});
-
-app.get('/api/music/list', (req, res) => {
-  fs.readdir(uploadsDir, (err, files) => {
-    if (err) return res.status(500).json({ message: 'Unable to read uploads' });
-    res.json(files);
+  res.json({
+    message: 'Registration successful',
   });
 });
 
-app.get('/api/music/download/:file', (req, res) => {
-  const filepath = path.join(uploadsDir, req.params.file);
-  res.download(filepath);
-  
-  app.post("/donate", async (req, res) => {
+// Login
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body;
+
+  const user = users.find(
+    (u) => u.email === email && u.password === password
+  );
+
+  if (!user) {
+    return res.status(400).json({
+      message: 'Invalid credentials',
+    });
+  }
+
+  const token = generateToken(user);
+
+  res.json({
+    token,
+  });
+});
+
+// Forgot password
+app.post('/api/auth/forgot', (req, res) => {
+  const { email } = req.body;
+
+  const user = users.find((u) => u.email === email);
+
+  if (!user) {
+    return res.status(400).json({
+      message: 'User not found',
+    });
+  }
+
+  const token =
+    Math.random().toString(36).substring(2) + Date.now();
+
+  resetTokens[token] = user.id;
+
+  console.log(
+    `Password reset link: http://localhost:${PORT}/reset.html?token=${token}`
+  );
+
+  res.json({
+    message: 'Reset link generated',
+  });
+});
+
+// ---------------- MPESA DONATION ROUTE ----------------
+
+app.post('/donate', async (req, res) => {
   const { phone, amount } = req.body;
 
   try {
     const auth = Buffer.from(
       `${process.env.CONSUMER_KEY}:${process.env.CONSUMER_SECRET}`
-    ).toString("base64");
+    ).toString('base64');
 
-    const tokenRes = await axios.get(
+    const tokenResponse = await axios.get(
       `${process.env.BASE_URL}/oauth/v1/generate?grant_type=client_credentials`,
       {
         headers: {
@@ -124,65 +125,85 @@ app.get('/api/music/download/:file', (req, res) => {
       }
     );
 
-    const token = tokenRes.data.access_token;
+    const accessToken = tokenResponse.data.access_token;
 
     const timestamp = new Date()
       .toISOString()
-      .replace(/[-T:.Z]/g, "")
+      .replace(/[-T:.Z]/g, '')
       .slice(0, 14);
 
     const password = Buffer.from(
-      process.env.SHORTCODE + process.env.PASSKEY + timestamp
-    ).toString("base64");
+      process.env.SHORTCODE +
+        process.env.PASSKEY +
+        timestamp
+    ).toString('base64');
 
-    const stk = await axios.post(
+    const response = await axios.post(
       `${process.env.BASE_URL}/mpesa/stkpush/v1/processrequest`,
       {
         BusinessShortCode: process.env.SHORTCODE,
         Password: password,
         Timestamp: timestamp,
-        TransactionType: "CustomerPayBillOnline",
+        TransactionType: 'CustomerPayBillOnline',
         Amount: amount,
         PartyA: phone,
         PartyB: process.env.SHORTCODE,
         PhoneNumber: phone,
-        CallBackURL: "https://johnie-1.onrender.com/callback",
-        AccountReference: "Donation",
-        TransactionDesc: "Website Donation",
+        CallBackURL:
+          'https://johnie-1.onrender.com/callback',
+        AccountReference: 'Donation',
+        TransactionDesc: 'Website Donation',
       },
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       }
     );
 
-    res.json(stk.data);
-  } catch (err) {
-    res.status(500).json(err.response?.data || err.message);
+    res.json(response.data);
+  } catch (error) {
+    console.log(error.response?.data || error.message);
+
+    res.status(500).json({
+      message: 'Donation request failed',
+      error: error.response?.data || error.message,
+    });
   }
 });
-  app.post("/callback", (req, res) => {
-  console.log("Callback received:", req.body);
+
+// ---------------- MPESA CALLBACK ----------------
+
+app.post('/callback', (req, res) => {
+  console.log('M-Pesa Callback Received');
 
   try {
-    const result = req.body.Body.stkCallback;
+    const callback = req.body.Body.stkCallback;
+
+    console.log(callback);
 
     res.json({
-      message: "Callback received",
-      resultCode: result.ResultCode,
-      resultDesc: result.ResultDesc,
+      message: 'Callback received successfully',
+      resultCode: callback.ResultCode,
+      resultDesc: callback.ResultDesc,
     });
-  } catch (e) {
-    res.json({ message: "Invalid callback" });
+  } catch (error) {
+    console.log(error.message);
+
+    res.status(500).json({
+      message: 'Callback processing failed',
+    });
   }
 });
-  
 
-  
+// ---------------- DEFAULT ROUTE ----------------
+
+app.get('/', (req, res) => {
+  res.send('Server is running...');
 });
 
-// Start server
+// ---------------- START SERVER ----------------
+
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
