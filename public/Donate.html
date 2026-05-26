@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Donate</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7fb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .donation-card {
+      background: white;
+      width: 350px;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      color: #1a73e8;
+      margin-bottom: 10px;
+    }
+
+    p {
+      text-align: center;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      border: none;
+      background: #1a73e8;
+      color: white;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #155ab6;
+    }
+
+    .message {
+      margin-top: 15px;
+      text-align: center;
+      font-size: 14px;
+      color: green;
+    }
+
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="donation-card">
+    <h2>💙 Support Us</h2>
+
+    <p>Donate securely using M-Pesa</p>
+
+    <input
+      type="text"
+      id="phone"
+      placeholder="2547XXXXXXXX"
+    />
+
+    <input
+      type="number"
+      id="amount"
+      placeholder="Amount (KES)"
+    />
+
+    <button onclick="donate()">
+      Donate Now
+    </button>
+
+    <div class="message" id="message"></div>
+  </div>
+
+  <script>
+    async function donate() {
+      const phone = document.getElementById("phone").value;
+      const amount = document.getElementById("amount").value;
+      const message = document.getElementById("message");
+
+      message.classList.remove("error");
+      message.innerHTML = "⏳ Processing donation...";
+
+      try {
+        const response = await fetch("/donate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            phone,
+            amount
+          })
+        });
+
+        const data = await response.json();
+
+        console.log(data);
+
+        if (data.ResponseCode === "0") {
+          message.innerHTML =
+            "📲 Check your phone and enter your M-Pesa PIN.";
+        } else {
+          message.innerHTML =
+            "❌ Failed to initiate payment.";
+          message.classList.add("error");
+        }
+
+      } catch (error) {
+        console.log(error);
+
+        message.innerHTML =
+          "❌ Server error. Try again later.";
+        message.classList.add("error");
+      }
+    }
+  </script>
+
+</body>
+</html>
