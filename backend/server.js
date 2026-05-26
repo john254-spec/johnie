@@ -162,6 +162,21 @@ app.get('/api/music/download/:file', (req, res) => {
     res.status(500).json(err.response?.data || err.message);
   }
 });
+  app.post("/callback", (req, res) => {
+  console.log("Callback received:", req.body);
+
+  try {
+    const result = req.body.Body.stkCallback;
+
+    res.json({
+      message: "Callback received",
+      resultCode: result.ResultCode,
+      resultDesc: result.ResultDesc,
+    });
+  } catch (e) {
+    res.json({ message: "Invalid callback" });
+  }
+});
   
 
   
